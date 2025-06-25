@@ -1,0 +1,45 @@
+✅ 각 파일의 역할 분석 (업로드한 원본 기준):
+파일명	설명	자율주행에 유용도
+test_lanenet.py	하나의 이미지 파일에 대해 LaneNet 추론 및 시각화 진행. 단일 이미지 디버깅에 최적	⭐⭐⭐⭐⭐
+evaluate_lanenet_on_tusimple.py	튜심플 데이터셋을 기반으로 한 모델 성능 평가. 실시간과 무관	⭐
+evaluate_model_utils.py	위 평가용 유틸 함수들.	⭐
+generate_tusimple_dataset.py	튜심플용 전처리 (원본→TFRecord). 자체 데이터 쓸 경우만 필요	⭐
+make_tusimple_tfrecords.py	위와 연동됨. TFRecord 제작기	⭐
+train_lanenet_tusimple.py	학습 스크립트. 모델 훈련 시에만 사용	⭐⭐
+lanenet_front_end.py	LaneNet의 front (특징 추출 CNN) 구조 정의	내부 컴포넌트
+lanenet_back_end.py	LaneNet의 back (segmentation head 등) 구조	내부 컴포넌트
+lanenet.py	전체 LaneNet 네트워크 정의. front+back 합침	모델 구조 핵심
+lanenet_discriminative_loss.py	instance segmentation을 위한 loss 계산	학습 관련
+✅ test_lanenet.py	GTA에서 캡쳐한 이미지 검증에 가장 적합
+
+
+✅ 각 파일의 역할 분석 (업로드한 원본 기준):
+파일명	설명	자율주행에 유용도
+test_lanenet.py	하나의 이미지 파일에 대해 LaneNet 추론 및 시각화 진행. 단일 이미지 디버깅에 최적	⭐⭐⭐⭐⭐
+evaluate_lanenet_on_tusimple.py	튜심플 데이터셋을 기반으로 한 모델 성능 평가. 실시간과 무관	⭐
+evaluate_model_utils.py	위 평가용 유틸 함수들.	⭐
+generate_tusimple_dataset.py	튜심플용 전처리 (원본→TFRecord). 자체 데이터 쓸 경우만 필요	⭐
+make_tusimple_tfrecords.py	위와 연동됨. TFRecord 제작기	⭐
+train_lanenet_tusimple.py	학습 스크립트. 모델 훈련 시에만 사용	⭐⭐
+lanenet_front_end.py	LaneNet의 front (특징 추출 CNN) 구조 정의	내부 컴포넌트
+lanenet_back_end.py	LaneNet의 back (segmentation head 등) 구조	내부 컴포넌트
+lanenet.py	전체 LaneNet 네트워크 정의. front+back 합침	모델 구조 핵심
+lanenet_discriminative_loss.py	instance segmentation을 위한 loss 계산	학습 관련
+✅ test_lanenet.py	GTA에서 캡쳐한 이미지 검증에 가장 적합
+
+✅ 모델 구성 관련
+파일명	역할
+lanenet.py	LaneNet 전체 네트워크 구성 총괄 클래스
+lanenet_front_end.py	VGG 기반 feature extraction 모듈
+lanenet_back_end.py	feature를 바탕으로 차선 마스크 생성하는 decoder
+lanenet_discriminative_loss.py	인스턴스 분할을 위한 loss function
+
+
+
+✅ 보조 모듈
+파일명	역할
+cnn_basenet.py	여러 CNN 계층의 공통 함수를 정의한 base class
+vgg16_based_fcn.py	실제 VGG16 기반 FCN 구현 (LaneNet encoder)
+lanenet_postprocess.py	결과 후처리: 차선 연결, 색상 처리, clustering 등
+lanenet_data_feed_pipline.py	학습용 데이터 피딩 파이프라인
+tf_io_pipline_tools.py	TFRecord 관련 IO 처리 유틸
