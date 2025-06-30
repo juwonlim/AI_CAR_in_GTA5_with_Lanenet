@@ -12,10 +12,17 @@ test LaneNet model on single image
 import argparse
 import os.path as ops
 import time
-
 import sys
 import os
-#sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+import cv2
+import numpy as np
+import tensorflow as tf
+import matplotlib.pyplot as plt
+import tensorflow.compat.v1 as tf
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+
+
 # lanenet_inference 경로를 직접 추가
 lanenet_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'lanenet_inference'))
 if lanenet_path not in sys.path:
@@ -26,21 +33,33 @@ from lanenet_model import lanenet_postprocess
 print("[DEBUG] sys.path:", sys.path)
 print("[DEBUG] Current dir:", os.getcwd())
 print("[DEBUG] lanenet_model exists:", os.path.exists('../lanenet_model'))
+from preprocess_for_lanenet import grab_screen
+
+
+#import lanenet_postprocess
+#import lanenet
+
+
+import yaml
+from easydict import EasyDict as edict
+with open("E:/gta5_project/AI_GTA5_Lanenet_Yolov2_Version/lanenet_inference/config/tusimple_lanenet.yaml", 'r', encoding='utf-8') as f:
+    CFG = edict(yaml.safe_load(f))
 
 
 
-import cv2
-import numpy as np
-import tensorflow as tf
+#from local_utils.config_utils import parse_config_utils
+#from local_utils.log_util import init_logger
+#CFG = parse_config_utils.lanenet_cfg
+#LOG = init_logger.get_logger(log_file_name_prefix='lanenet_test')
+
+#net = lanenet.LaneNet(phase='test')  # cfg 제거
+#postprocessor = lanenet_postprocess.LaneNetPostProcessor()  # cfg 제거
+
+#net = lanenet.LaneNet(phase='test', cfg=CFG)  # cfg 추가 
+#postprocessor = lanenet_postprocess.LaneNetPostProcessor(cfg=CFG)
 
 
-import matplotlib.pyplot as plt
 
-from local_utils.config_utils import parse_config_utils
-from local_utils.log_util import init_logger
-
-CFG = parse_config_utils.lanenet_cfg
-LOG = init_logger.get_logger(log_file_name_prefix='lanenet_test')
 
 
 
@@ -108,7 +127,8 @@ def test_lanenet(image_path, weights_path, with_lane_fit=True):
     """
     assert ops.exists(image_path), '{:s} not exist'.format(image_path) #전체 test_lanenet()함수 구조자체가 1회용 함수임
 
-    LOG.info('Start reading image and preprocessing')
+    #LOG.info('Start reading image and preprocessing')
+    print('Start reading image and preprocessing')
     t_start = time.time()
     image = cv2.imread(image_path, cv2.IMREAD_COLOR)
     #image = enhance_contrast(image)  # 여기에 이미지 대비향상 추가
@@ -120,30 +140,43 @@ def test_lanenet(image_path, weights_path, with_lane_fit=True):
     print("[DEBUG] model loaded, image shape:", image.shape)  # <= 이 줄 추가
 
 
-    LOG.info('Image load complete, cost time: {:.5f}s'.format(time.time() - t_start))
-
+    #LOG.info('Image load complete, cost time: {:.5f}s'.format(time.time() - t_start))
+    print('Image load complete, cost time: {:.5f}s'.format(time.time() - t_start))
     
     ####여기서부터는 while문안에 넣어서 반복시킬경우 큰 비효율을 야기하는 코드들 !!!!!
     input_tensor = tf.placeholder(dtype=tf.float32, shape=[1, 256, 512, 3], name='input_tensor')
 
-    net = lanenet.LaneNet(phase='test', cfg=CFG)
-    binary_seg_ret, instance_seg_ret = net.inference(input_tensor=input_tensor, name='LaneNet')
+    #net = lanenet.LaneNet(phase='test', cfg=CFG) #main_autonomous_loop함수에도 있는 코드1 --지금은 전역으로 이동됨
+    #binary_seg_ret, instance_seg_ret = net.inference(input_tensor=input_tensor, name='LaneNet') #main_autonomous_loop함수에도 있는 코드2 --지금은 전역으로 이동됨
 
     postprocessor = lanenet_postprocess.LaneNetPostProcessor(cfg=CFG) #lanenet_model 폴더 밑에 lanenet_postprocess.py에 있는 yml 파일 경로 ,  'E:/gta5_project/AI_GTA5_Lanenet_Yolov2_Version/lanenet_inference/data/tusimple_ipm_remap.yml' 이 경로로 수정완료
 
     # Set sess configuration
     sess_config = tf.ConfigProto()
-    sess_config.gpu_options.per_process_gpu_memory_fraction = CFG.GPU.GPU_MEMORY_FRACTION
-    sess_config.gpu_options.allow_growth = CFG.GPU.TF_ALLOW_GROWTH
+    #sess_config.gpu_options.per_process_gpu_memory_fraction = CFG.GPU.GPU_MEMORY_FRACTION
+    #sess_config.gpu_options.allow_growth = CFG.GPU.TF_ALLOW_GROWTH
+    sess_config = tf.ConfigProto()
+    sess_config.gpu_options.allow_growth = True
     sess_config.gpu_options.allocator_type = 'BFC'
+   
 
     sess = tf.Session(config=sess_config)
     
    ####여기까지는  while문안에 넣어서 반복시킬경우 큰 비효율을 야기하는 코드들!!!!!
 
 
-    # define moving average version of the learned variables for eval
-    with tf.variable_scope(name_or_scope='moving_avg'):
+    # define moving average version of the learned variables for eval 
+    #with tf.variable_scope(name_or_scope='moving_avg'): #ValueError: Variable LaneNet/.../W already exists, disallowed.  Did you mean to set reuse=True or reuse=tf.AUTO_REUSE in VarScope? -->에러 발생
+                                                        #즉, TensorFlow 변수 재사용 설정 없이 같은 이름의 레이어를 두 번 이상 호출하고 있어서 생긴 오류
+
+
+
+   #cfg 제거에 따라
+    with tf.variable_scope(name_or_scope='moving_avg'): 
+        variable_averages = tf.train.ExponentialMovingAverage(0.9999)
+        variables_to_restore = variable_averages.variables_to_restore()
+
+    with tf.variable_scope(name, reuse=tf.AUTO_REUSE):    
         variable_averages = tf.train.ExponentialMovingAverage(
             CFG.SOLVER.MOVING_AVE_DECAY)
         variables_to_restore = variable_averages.variables_to_restore()
@@ -176,7 +209,8 @@ def test_lanenet(image_path, weights_path, with_lane_fit=True):
         print("[DEBUG] instance_seg_image shape:", instance_seg_image.shape)
         t_cost = time.time() - t_start
         t_cost /= loop_times
-        LOG.info('Single imgae inference cost time: {:.5f}s'.format(t_cost))
+        #LOG.info('Single imgae inference cost time: {:.5f}s'.format(t_cost))
+        print('Single imgae inference cost time: {:.5f}s'.format(t_cost))
 
         postprocess_result = postprocessor.postprocess(
             binary_seg_result=binary_seg_image[0],
@@ -184,6 +218,7 @@ def test_lanenet(image_path, weights_path, with_lane_fit=True):
             source_image=image_vis,
             with_lane_fit=with_lane_fit,
             data_source='tusimple'
+            #data_source='culane'
         )
         mask_image = postprocess_result['mask_image']
         lane_params = postprocess_result['fit_params']
@@ -196,10 +231,12 @@ def test_lanenet(image_path, weights_path, with_lane_fit=True):
         
             print("[DEBUG] lane_params:", lane_params) #결과 디버깅용 출력 추가
             
-            LOG.info('Model have fitted {:d} lanes'.format(len(lane_params)))
+            #LOG.info('Model have fitted {:d} lanes'.format(len(lane_params)))
+            print('Model have fitted {:d} lanes'.format(len(lane_params)))
             
             for i in range(len(lane_params)):
-                LOG.info('Fitted 2-order lane {:d} curve param: {}'.format(i + 1, lane_params[i]))
+                #LOG.info('Fitted 2-order lane {:d} curve param: {}'.format(i + 1, lane_params[i]))
+                print('Fitted 2-order lane {:d} curve param: {}'.format(i + 1, lane_params[i]))
 
         for i in range(CFG.MODEL.EMBEDDING_FEATS_DIMS):
             instance_seg_image[0][:, :, i] = minmax_scale(instance_seg_image[0][:, :, i])
@@ -234,102 +271,105 @@ def test_lanenet(image_path, weights_path, with_lane_fit=True):
 
 ##############################################################################################################################################################
 #여기서부터 추가 된 것들!!!!!
+# =========================================================
+#  아래부터 사용자 정의 autonomous loop (rev06 추가)
+# =========================================================
 
+ #여기서부터 tensor로딩 - 1번만 로딩되야해서 전역변수로 이동
+tf.disable_eager_execution()
+input_tensor = tf.placeholder(dtype=tf.float32, shape=[1, 256, 512, 3], name='input_tensor')
+net = lanenet.LaneNet(phase='test', cfg=CFG) # test_lanenet함수에도 있는 코드 1 --전역으로 이동함
+binary_seg_ret, instance_seg_ret = net.inference(input_tensor=input_tensor, name='LaneNet') #binary_seg_ret 네트워크로부터 나온 float32 softmax score map → 이걸 바로 이진 마스크로 변환해야 후처리에 적합
+net.binary_seg = binary_seg_ret
+net.instance_seg = instance_seg_ret
+postprocessor = lanenet_postprocess.LaneNetPostProcessor(cfg=CFG) # test_lanenet함수에도 있는 코드 2 --전역으로 이동함
+sess_config = tf.ConfigProto()
+sess_config.gpu_options.allow_growth = CFG.GPU.TF_ALLOW_GROWTH
+sess = tf.Session(config=sess_config)
+saver = tf.train.Saver()
+    #여기까지  tensor 로딩
 
-#####자율주행 on/off######
-####################################
-#추가 된 모듈들
-#여기서부터 내가 만든 외부모듈 로딩
-from preprocess_for_lanenet import grab_screen
-
-####################################
-
-#내부에서 grab screen을 호출해서 gta5를 직접 캡쳐하므로 image_path불필요
 def main_autonomous_loop(weights_path):
-    input_tensor = tf.placeholder(dtype=tf.float32, shape=[1, 256, 512, 3], name='input_tensor')
+    if not hasattr(main_autonomous_loop, "initialized"):
+        saver.restore(sess=sess, save_path=weights_path)
+        main_autonomous_loop.initialized = True
+  
+   
 
-    net = lanenet.LaneNet(phase='test', cfg=CFG)
-    binary_seg_ret, instance_seg_ret = net.inference(input_tensor=input_tensor, name='LaneNet')
+    #saver.restore(sess=sess, save_path=weights_path)
 
-    postprocessor = lanenet_postprocess.LaneNetPostProcessor(cfg=CFG)
-
-    sess_config = tf.ConfigProto()
-    sess_config.gpu_options.allow_growth = CFG.GPU.TF_ALLOW_GROWTH
-    sess = tf.Session(config=sess_config)
-
-    with tf.variable_scope(name_or_scope='moving_avg'):
-        variable_averages = tf.train.ExponentialMovingAverage(CFG.SOLVER.MOVING_AVE_DECAY)
-        variables_to_restore = variable_averages.variables_to_restore()
-    saver = tf.train.Saver(variables_to_restore)
-    saver.restore(sess=sess, save_path=weights_path)
-
+    # 추론 실행
     screen = grab_screen()
     image_vis = cv2.resize(screen, (1280, 720))
+    image = enhance_contrast(image_vis) #contrast증가
     image = cv2.resize(image_vis, (512, 256))
     image = image / 127.5 - 1.0
 
     binary_seg_image, instance_seg_image = sess.run(
-        [binary_seg_ret, instance_seg_ret],
+        [net.binary_seg, net.instance_seg],
         feed_dict={input_tensor: [image]}
     )
-   
 
+# float32 → binary mask 변환 (중요!)
+    #binary_seg_image = (binary_seg_image > 0.5).astype(np.uint8)  --> 이건 잘못된거
 
-
+    #binary_seg_ret > 0.5 → 오류 (텐서 vs float 연산 불가)
+    #binary_seg_image = (binary_seg_ret > 0.5).astype(np.uint8) #sess.run후 float변환 처리 ,이진 마스크 변환 (float → binary mask)
+    
+    #binary_seg_image > 0.5 → OK (넘파이 배열 vs float 연산 가능)
+    #binary_seg_image = sess.run(binary_seg_ret)  # 먼저 텐서 → 넘파이 변환
+    #binary_seg_image = sess.run(binary_seg_ret, feed_dict={input_tensor: image})  # ✔ feed_dict 추가
+    binary_seg_image = sess.run(binary_seg_ret, feed_dict={input_tensor: [image]})
+    binary_seg_image = (binary_seg_image > 0.5).astype(np.uint8)  # 이제 연산 가능, 이진화
+    
+    print("[DEBUG] binary_seg_image.shape:", binary_seg_image.shape)
+    instance_seg_image = instance_seg_image.astype(np.float32) #다른 곳에서 호출되지는 않으나 있어야 함
+    
 
 
     result = postprocessor.postprocess(
-        binary_seg_result=binary_seg_image[0],
-        instance_seg_result=instance_seg_image[0],
-        source_image=image_vis,
-        with_lane_fit=True,
+        binary_seg_result=binary_seg_image[0], #배치가 1이므로 [0] 인덱싱 후 사용 (OK)
+        instance_seg_result=instance_seg_image[0], #위와 동일 (OK)
+        source_image=image_vis, #원본 시각화용 이미지 전달 (선택사항이지만 OK)
+        with_lane_fit=True, #다항회귀 적합 여부 (True일 경우 fit_params 리턴)
         data_source='tusimple'
     )
 
-
-    cv2.namedWindow("input_image", cv2.WINDOW_NORMAL)
+          # 시각화용 창 설정
     cv2.namedWindow("mask_image", cv2.WINDOW_NORMAL)
     cv2.namedWindow("binary_seg", cv2.WINDOW_NORMAL)
-
-    cv2.resizeWindow("input_image", 640, 360)
     cv2.resizeWindow("mask_image", 640, 360)
     cv2.resizeWindow("binary_seg", 640, 360)
 
-    cv2.imshow("input_image", image_vis)
-    cv2.moveWindow("input_image", 1280, 0)  # 우상단
-
     cv2.imshow("mask_image", result['mask_image'])
-    cv2.moveWindow("mask_image", 1280, 500)
+    cv2.moveWindow("mask_image", 1280, 550)
 
     cv2.imshow("binary_seg", (binary_seg_image[0] * 255).astype(np.uint8))
-    cv2.moveWindow("binary_seg", 1280, 250)
-
+    cv2.moveWindow("binary_seg", 1280, 100)
     cv2.waitKey(1)
-    
-    if result is None or result['fit_params'] is None:
+
+
+
+   #이거는 양쪽 차선 다 있어야 주행
+    #if result is None or result['fit_params'] is None: #이게 calculate_steering_from_fit() 내부에서 처리되고 있으므로, 약간의 중복이지만 큰 문제는 아님
+     #   print("[WARNING] No lane detected.")
+      #  return {'fit_params': None, 'mask_image': None, 'source_image': None}
+
+
+
+#이거는 한쪽 차선이라도 있으면 주행    
+    if result is None or not result['fit_params'] or len(result['fit_params']) == 0:
         print("[WARNING] No lane detected.")
         return {'fit_params': None, 'mask_image': None, 'source_image': None}
-    sess.close()
+
+
+
+
+
     return {
-        'mask_image': result['mask_image'],       # 시각화용 이미지
-        'fit_params': result['fit_params'],       # 좌/우 차선 다항식 (A, B, C)
-        'source_image': image_vis                 # 원본 입력 이미지
+        'mask_image': result['mask_image'] if result else None,
+        'fit_params': result['fit_params'] if result else None,
+        'source_image': image_vis
     }
 
-   
 
-
-
-
-###여기까지 추가된 것들
-###############################################################################################################################
-
-if __name__ == '__main__':
-    """
-    test code
-    """
-    # init args
-    args = init_args()
-
-    #test_lanenet(args.image_path, args.weights_path, with_lane_fit=args.with_lane_fit) --원래 것
-    main_autonomous_loop( ) #수정한 것 --test_lanenet함수를 실시간 동영상 처리에 맞게 수정한 main~함수를 로딩

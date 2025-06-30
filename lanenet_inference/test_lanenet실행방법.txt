@@ -9,10 +9,13 @@ python tools/test_lanenet.py --image_path E:/gta5_project/AI_GTA5/lanenet_infere
 python tools/test_lanenet.py --weights_path E:/gta5_project/AI_GTA5/lanenet_inference/lanenet_maybeshewill/tusimple_lanenet.ckpt --image_path E:/gta5_project/AI_GTA5/lanenet_inference/data/tusimple_test_image/1.jpg  --with_lane_fit false
 python tools/test_lanenet.py --weights_path E:/gta5_project/AI_GTA5_Lanenet_Yolov2_Version/lanenet_inference/lanenet_maybeshewill/tusimple_lanenet.ckpt --image_path E:/gta5_project/AI_GTA5_Lanenet_Yolov2_Version/lanenet_inference/data/tusimple_test_image/4.jpg  --with_lane_fit false
 이걸로 실행해볼 것
+python tools/test_lanenet.py --weights_path E:/gta5_project/AI_GTA5_Lanenet_Yolov2_Version/lanenet_inference/lanenet_maybeshewill/tusimple_lanenet.ckpt --image_path E:/gta5_project/AI_GTA5_Lanenet_Yolov2_Version/lanenet_inference/data/tusimple_test_image/8.jpg  --with_lane_fit false
+
+
+
 
 
 python tools/test_lanenet.py --image_path E:/gta5_project/AI_GTA5/lanenet_inference/data/tusimple_test_image/2.jpg --weights_path E:/gta5_project/AI_GTA5/lanenet_inference/lanenet_maybeshewill/tusimple_lanenet.ckpt --with_lane_fit true
-
 
 python tools/test_lanenet.py --image_path E:/gta5_project/AI_GTA5/lanenet_inference/data/tusimple_test_image/1.jpg --weights_path E:/gta5_project/AI_GTA5/lanenet_inference/lanenet_kaggle/tusimple_lanenet.ckpt --with_lane_fit false
 이건 kaggle에서 받은 파일

@@ -53,7 +53,14 @@ def grab_screen():
 
 
 
+#우측 하단의 속도계 검출로직 
+def grab_speed_region(screen):
+    # 입력은 반드시 (720, 1280, 3) 사이즈여야 함
+    if screen.shape[0] != 720 or screen.shape[1] != 1280:
+        screen = cv2.resize(screen, (1280, 720))  # 안전장치
 
+    speed_region = screen[650:710, 1100:1250]
+    return speed_region
 
 
 

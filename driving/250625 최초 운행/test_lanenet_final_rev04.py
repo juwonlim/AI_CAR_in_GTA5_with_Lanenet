@@ -15,8 +15,13 @@ import time
 
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
+#sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# lanenet_inference 경로를 직접 추가
+lanenet_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'lanenet_inference'))
+if lanenet_path not in sys.path:
+    sys.path.append(lanenet_path)
+from lanenet_model import lanenet
+from lanenet_model import lanenet_postprocess
 
 print("[DEBUG] sys.path:", sys.path)
 print("[DEBUG] Current dir:", os.getcwd())
@@ -30,8 +35,7 @@ import tensorflow as tf
 
 
 import matplotlib.pyplot as plt
-from lanenet_model import lanenet
-from lanenet_model import lanenet_postprocess
+
 from local_utils.config_utils import parse_config_utils
 from local_utils.log_util import init_logger
 
@@ -125,7 +129,7 @@ def test_lanenet(image_path, weights_path, with_lane_fit=True):
     net = lanenet.LaneNet(phase='test', cfg=CFG)
     binary_seg_ret, instance_seg_ret = net.inference(input_tensor=input_tensor, name='LaneNet')
 
-    postprocessor = lanenet_postprocess.LaneNetPostProcessor(cfg=CFG)
+    postprocessor = lanenet_postprocess.LaneNetPostProcessor(cfg=CFG) #lanenet_model 폴더 밑에 lanenet_postprocess.py에 있는 yml 파일 경로 ,  'E:/gta5_project/AI_GTA5_Lanenet_Yolov2_Version/lanenet_inference/data/tusimple_ipm_remap.yml' 이 경로로 수정완료
 
     # Set sess configuration
     sess_config = tf.ConfigProto()
@@ -138,8 +142,11 @@ def test_lanenet(image_path, weights_path, with_lane_fit=True):
    ####여기까지는  while문안에 넣어서 반복시킬경우 큰 비효율을 야기하는 코드들!!!!!
 
 
-    # define moving average version of the learned variables for eval
-    with tf.variable_scope(name_or_scope='moving_avg'):
+    # define moving average version of the learned variables for eval 
+    #with tf.variable_scope(name_or_scope='moving_avg'): #ValueError: Variable LaneNet/.../W already exists, disallowed.  Did you mean to set reuse=True or reuse=tf.AUTO_REUSE in VarScope? -->에러 발생
+                                                        #즉, TensorFlow 변수 재사용 설정 없이 같은 이름의 레이어를 두 번 이상 호출하고 있어서 생긴 오류
+
+    with tf.variable_scope(name, reuse=tf.AUTO_REUSE):    
         variable_averages = tf.train.ExponentialMovingAverage(
             CFG.SOLVER.MOVING_AVE_DECAY)
         variables_to_restore = variable_averages.variables_to_restore()
@@ -224,23 +231,101 @@ def test_lanenet(image_path, weights_path, with_lane_fit=True):
         
     sess.close()
     return
+
+
+
+
 ##############################################################################################################################################################
+#여기서부터 추가 된 것들!!!!!
 
-        #여기서부터 추가 된 것들!!!!!
-
- 
 
 #####자율주행 on/off######
 ####################################
 #추가 된 모듈들
 #여기서부터 내가 만든 외부모듈 로딩
-from data_collection.preprocess_for_lanenet import grab_screen
-from data_collection.keyboard_input_only_rev00 import controller 
+from preprocess_for_lanenet import grab_screen
 
-weights_path = 'E:/gta5_project/AI_GTA5_Lanenet_Yolov2_Version/lanenet_inference/lanenet_maybeshewill/tusimple_lanenet.ckpt'
 ####################################
 
-#내부에서 grab screen을 호출해서 gta5를 직접 캡쳐하므로 image_path불필요    sess.close()
+#내부에서 grab screen을 호출해서 gta5를 직접 캡쳐하므로 image_path불필요
+def main_autonomous_loop(weights_path):
+    input_tensor = tf.placeholder(dtype=tf.float32, shape=[1, 256, 512, 3], name='input_tensor')
+
+    net = lanenet.LaneNet(phase='test', cfg=CFG)
+    binary_seg_ret, instance_seg_ret = net.inference(input_tensor=input_tensor, name='LaneNet')
+
+    postprocessor = lanenet_postprocess.LaneNetPostProcessor(cfg=CFG)
+
+    sess_config = tf.ConfigProto()
+    sess_config.gpu_options.allow_growth = CFG.GPU.TF_ALLOW_GROWTH
+    sess = tf.Session(config=sess_config)
+
+    with tf.variable_scope(name_or_scope='moving_avg'):
+        variable_averages = tf.train.ExponentialMovingAverage(CFG.SOLVER.MOVING_AVE_DECAY)
+        variables_to_restore = variable_averages.variables_to_restore()
+    saver = tf.train.Saver(variables_to_restore)
+    saver.restore(sess=sess, save_path=weights_path)
+
+    screen = grab_screen()
+    image_vis = cv2.resize(screen, (1280, 720))
+    image = cv2.resize(image_vis, (512, 256))
+    image = image / 127.5 - 1.0
+
+    binary_seg_image, instance_seg_image = sess.run(
+        [binary_seg_ret, instance_seg_ret],
+        feed_dict={input_tensor: [image]}
+    )
+   
+
+
+
+
+
+    result = postprocessor.postprocess(
+        binary_seg_result=binary_seg_image[0],
+        instance_seg_result=instance_seg_image[0],
+        source_image=image_vis,
+        with_lane_fit=True,
+        data_source='tusimple'
+    )
+
+
+
+
+
+    #cv2.namedWindow("input_image", cv2.WINDOW_NORMAL)
+    cv2.namedWindow("mask_image", cv2.WINDOW_NORMAL)
+    cv2.namedWindow("binary_seg", cv2.WINDOW_NORMAL)
+
+    #cv2.resizeWindow("input_image", 640, 360)
+    cv2.resizeWindow("mask_image", 640, 360)
+    cv2.resizeWindow("binary_seg", 640, 360)
+
+    #cv2.imshow("input_image", image_vis)
+    #cv2.moveWindow("input_image", 1280, 0)  # 우상단
+
+    cv2.imshow("mask_image", result['mask_image'])
+    cv2.moveWindow("mask_image", 1280, 500)
+
+    cv2.imshow("binary_seg", (binary_seg_image[0] * 255).astype(np.uint8))
+    cv2.moveWindow("binary_seg", 1280, 250)
+
+    cv2.waitKey(1)
+    
+    if result is None or result['fit_params'] is None:
+        print("[WARNING] No lane detected.")
+        return {'fit_params': None, 'mask_image': None, 'source_image': None}
+    sess.close() #반드시 return이전에 호출되야 함
+    return {
+        'mask_image': result['mask_image'],       # 시각화용 이미지
+        'fit_params': result['fit_params'],       # 좌/우 차선 다항식 (A, B, C)
+        'source_image': image_vis                 # 원본 입력 이미지
+    }
+
+   
+
+
+
 
 ###여기까지 추가된 것들
 ###############################################################################################################################
@@ -253,21 +338,4 @@ if __name__ == '__main__':
     args = init_args()
 
     #test_lanenet(args.image_path, args.weights_path, with_lane_fit=args.with_lane_fit) --원래 것
-    main_autonomous_loop(weights_path) #수정한 것 --test_lanenet함수를 실시간 동영상 처리에 맞게 수정한 main~함수를 로딩
-
-
-def main_autonomous_loop(weights_path):
-    predictor = LaneNetPredictor(weights_path)
-    screen = grab_screen()
-    result = predictor.predict(screen)
-
-    mask = result['mask_image']
-    fit_params = result['fit_params']  # 차선 다항식 추정 결과
-    source_image = result['source_image']
-
-    # 외부 주행 제어 파일에서 사용할 수 있도록 리턴
-    return {
-        'mask_image': mask,
-        'fit_params': fit_params,
-        'source_image': source_image
-    }
+    main_autonomous_loop( ) #수정한 것 --test_lanenet함수를 실시간 동영상 처리에 맞게 수정한 main~함수를 로딩

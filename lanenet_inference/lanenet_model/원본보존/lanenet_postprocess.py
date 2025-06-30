@@ -162,8 +162,7 @@ class _LaneNetCluster(object):
         :param embedding_image_feats:
         :return:
         """
-        #db = DBSCAN(eps=self._cfg.POSTPROCESS.DBSCAN_EPS, min_samples=self._cfg.POSTPROCESS.DBSCAN_MIN_SAMPLES) --> 원본
-        db = DBSCAN(eps=0.4, min_samples=3) #eps를 작게 조절할수록 좁은 군집만 인식,min_samples를 낮추면 소수의 포인트만 있어도 차선으로 판단 --> 수정하여 하드코딩으로 직접제어
+        db = DBSCAN(eps=self._cfg.POSTPROCESS.DBSCAN_EPS, min_samples=self._cfg.POSTPROCESS.DBSCAN_MIN_SAMPLES)
         try:
             features = StandardScaler().fit_transform(embedding_image_feats)
             db.fit(features)
@@ -246,16 +245,7 @@ class _LaneNetCluster(object):
                 continue
             idx = np.where(db_labels == label)
             pix_coord_idx = tuple((coord[idx][:, 1], coord[idx][:, 0]))
-           
-            if len(coord[idx]) < 5: #추가된 줄, 20에서 5로 완화함
-                continue #추가된 줄
-            
-            #mask[pix_coord_idx] = self._color_map[index] --> 기존
-            
-            # 수정
-            color_index = index % len(self._color_map)
-            mask[pix_coord_idx] = self._color_map[color_index]
-
+            mask[pix_coord_idx] = self._color_map[index]
             lane_coords.append(coord[idx])
 
         return mask, lane_coords
@@ -311,7 +301,7 @@ class LaneNetPostProcessor(object):
 
 #min_area_threshold가 100이었는데 이 값은 너무 작은 영역은 전부제거라 10으로 고쳐봄, 0도 가능하다함
     def postprocess(self, binary_seg_result, instance_seg_result=None,
-                    min_area_threshold=0, source_image=None, 
+                    min_area_threshold=10, source_image=None,
                     with_lane_fit=True, data_source='tusimple'):
         """
 
@@ -380,12 +370,6 @@ class LaneNetPostProcessor(object):
             )
             nonzero_y = np.array(tmp_ipm_mask.nonzero()[0])
             nonzero_x = np.array(tmp_ipm_mask.nonzero()[1])
-
-            #추가된 방어코드
-            if len(nonzero_x) == 0 or len(nonzero_y) == 0:
-                continue
-
-
 
             fit_param = np.polyfit(nonzero_y, nonzero_x, 2)
             fit_params.append(fit_param)
