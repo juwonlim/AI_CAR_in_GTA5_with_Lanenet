@@ -17,12 +17,15 @@
 
 ###  주요 코드 파일
 
+driving 폴더:
 | 파일명 | 설명 |
 |--------|------|
-| `test_lanenet.py` | 단일 이미지에 대해 Lanenet을 실행하고 결과를 시각화 |
-| `main_autonomous_loop()` | 실시간 영상 스트림에서 Lanenet을 연속 적용하려고 시도한 메인 루프 |
-| `virtual_lane.py` | 예측된 차선 좌표를 바탕으로 중앙 가상 차선을 시각화하는 모듈 |
-| `mask_image` 관련 코드 | binary segmentation 결과에서 mask 이미지 생성 시도 |
+| drive_with_lanenet_control_rev12.py --> GTA5내의 차량의 steer과 throttle등을 담당합니다
+| preprocess_for_lanenet.py --> 영상 캡쳐용 preprocess 파일
+| test_lanenet_final_rev12.py -->  `main_autonomous_loop()함수` | 실시간 영상 스트림에서 Lanenet을 연속 적용하려고 시도한 메인 루프 |
+| virtual_lane.py -->  예측된 차선 좌표를 바탕으로 중앙 가상 차선을 시각화하는 모듈 
+| keyboard_input_only_rev00.py --> GTA5에 Keyboard 입력을 담당하는 모듈파일
+| `mask_image` 관련 코드 | binary segmentation 결과에서 mask 이미지 생성 시도 
 
 ---
 
@@ -37,8 +40,7 @@
 3. **추론 결과 mask_image가 일관되지 않음**
    - 내부 디버깅 결과, mask 이미지 생성 파이프라인과 후처리 구조가 영상 흐름과 매끄럽게 연결되지 않았음.
 
-4. **YOLOPv2 대비 유지보수성 한계**
-   - Lanenet은 세분화된 구조로 인해 영상 프레임 처리에 적합하지 않았고, 이후 객체 인식과 통합이 어려웠음.
+
 
 ---
 
